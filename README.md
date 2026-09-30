@@ -10,15 +10,16 @@ It keeps your own reliable record of working hours:
 ## Features
 
 - **Today:**
-  - One-tap **Start** / **End**, stamped in Europe/Berlin time whatever timezone the device is set to.
+  - One-tap **Clock in** / **Clock out**, stamped in Europe/Berlin time whatever timezone the device is set to.
   - A running clock and live net time.
-  - Manual entry and editing for forgotten or past days.
+  - A week chart: each day drawn as a bar on an hour axis, so you see *when* you worked, not just how long. Tap any day to edit it or fill it in.
+  - Manual entry for forgotten or past days, with "Now" buttons and one-tap break choices.
 - **Log:**
   - Entries grouped by ISO week (Mon–Sun), each with start, end, break, net hours and a note, plus weekly totals.
-  - Edit, and delete with confirmation.
+  - Tap a day to edit or delete it. A delete can be undone right away or later from Settings → Recently deleted.
 - **Totals:**
   - Current week and month.
-  - Optional contracted weekly hours, showing overtime or shortfall.
+  - Optional contracted weekly hours, with a progress bar and "ahead / behind" measured only against workdays that are already over, so mid-week numbers aren't alarming.
 - **Breaks:**
   - A default break (30 min unless you change it).
   - An optional warning when a break is below the German legal minimum (ArbZG §4: 30 min after 6 h, 45 min after 9 h). It only warns; your numbers are never changed.
