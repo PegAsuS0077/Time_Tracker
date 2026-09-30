@@ -9,11 +9,15 @@ export interface WeekSyncMeta {
   sha: string | null;
   /** Entries as last agreed with the remote (the three-way merge base). */
   base: Entry[];
+  /** owner/repo@branch this record belongs to. */
+  target: string;
 }
 
 export interface QueueItem {
   week: WeekKey;
   queuedAt: string;
+  /** Unique per enqueue, so a re-queue during a sync is not lost. */
+  id: string;
 }
 
 export interface TrackerDB extends DBSchema {
