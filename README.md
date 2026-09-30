@@ -12,7 +12,7 @@ It keeps your own reliable record of working hours:
 - **Today:**
   - One-tap **Clock in** / **Clock out**, stamped in Europe/Berlin time whatever timezone the device is set to.
   - A running clock and live net time.
-  - A week chart: each day drawn as a bar on an hour axis, so you see *when* you worked, not just how long. Tap any day to edit it or fill it in.
+  - A week chart: each day drawn as a bar on an hour axis, so you see _when_ you worked, not just how long. Tap any day to edit it or fill it in.
   - Manual entry for forgotten or past days, with "Now" buttons and one-tap break choices.
 - **Log:**
   - Entries grouped by ISO week (Mon–Sun), each with start, end, break, net hours and a note, plus weekly totals.
