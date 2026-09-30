@@ -11,6 +11,7 @@ import { MemoryProvider, MemorySettingsStore } from './storage/MemoryProvider';
 import { setupPwa } from './pwa/register';
 import { mountApp } from './ui/app';
 import { DataSection } from './ui/components/DataSection';
+import { DeletedSection } from './ui/components/DeletedSection';
 import { SyncBadge } from './ui/components/SyncBadge';
 import { SyncSection } from './ui/components/SyncSection';
 
@@ -41,7 +42,7 @@ async function bootstrap(): Promise<void> {
   );
 
   mountApp(root, service, {
-    settingsSections: [DataSection, SyncSection],
+    settingsSections: [DataSection, DeletedSection, SyncSection],
     headerExtras: [SyncBadge],
   });
   if (!db) {

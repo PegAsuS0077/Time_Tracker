@@ -55,20 +55,47 @@ export function nextId(prefix: string): string {
   return `${prefix}-${uid}`;
 }
 
-/** Announce a message to screen readers and show it as a toast. */
-export function toast(message: string, kind: 'info' | 'error' = 'info'): void {
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+/**
+ * Announce a message to screen readers and show it as a toast. With an
+ * action (e.g. Undo) it stays longer and offers a button.
+ */
+export function toast(
+  message: string,
+  kind: 'info' | 'error' = 'info',
+  action?: ToastAction,
+): void {
   const region = document.getElementById('toasts');
   if (!region) return;
   const item = h(
     'div',
-    { class: `toast toast-${kind}`, role: kind === 'error' ? 'alert' : 'status' },
-    message,
+    {
+      class: `toast toast-${kind}${action ? ' toast-action' : ''}`,
+      role: kind === 'error' ? 'alert' : 'status',
+    },
+    h('span', null, message),
+    action
+      ? h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-small',
+            onclick: () => {
+              item.remove();
+              action.onClick();
+            },
+          },
+          action.label,
+        )
+      : null,
   );
   region.append(item);
-  window.setTimeout(
-    () => {
-      item.remove();
-    },
-    kind === 'error' ? 8000 : 4000,
-  );
+  const duration = action ? 10000 : kind === 'error' ? 8000 : 4000;
+  window.setTimeout(() => {
+    item.remove();
+  }, duration);
 }

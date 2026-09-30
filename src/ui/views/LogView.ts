@@ -32,13 +32,23 @@ function row(service: TrackerService, entry: Entry, state: AppState): HTMLElemen
   const onDelete = (): void => {
     void confirmDialog(
       'Delete day?',
-      `Delete the entry for ${dateLabel}? This cannot be undone here, but earlier versions stay in your sync history.`,
+      `Delete the entry for ${dateLabel}? You can restore it later from Settings → Recently deleted.`,
       'Delete',
       true,
     ).then(async (confirmed) => {
       if (!confirmed) return;
       await service.deleteEntry(entry.date);
-      toast(`Deleted ${dateLabel}.`);
+      toast(`Deleted ${dateLabel}.`, 'info', {
+        label: 'Undo',
+        onClick: () => {
+          void service.restoreEntry(entry.date).then((result) => {
+            toast(
+              result.ok ? `Restored ${dateLabel}.` : result.error,
+              result.ok ? 'info' : 'error',
+            );
+          });
+        },
+      });
     });
   };
 

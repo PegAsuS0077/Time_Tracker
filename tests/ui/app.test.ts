@@ -5,6 +5,7 @@ import { TrackerService } from '../../src/app/services';
 import type { Entry } from '../../src/domain/types';
 import { MemoryProvider, MemorySettingsStore } from '../../src/storage/MemoryProvider';
 import { mountApp } from '../../src/ui/app';
+import { DeletedSection } from '../../src/ui/components/DeletedSection';
 
 let now = Date.parse('2026-09-30T06:15:00Z'); // 08:15 Berlin
 let unmount: () => void = () => undefined;
@@ -28,7 +29,7 @@ async function mount(entries: Entry[] = []) {
   const root = document.createElement('div');
   root.id = 'app';
   document.body.replaceChildren(root);
-  unmount = mountApp(root, service);
+  unmount = mountApp(root, service, { settingsSections: [DeletedSection] });
   await service.load();
   return { root, service, provider };
 }
@@ -196,5 +197,35 @@ describe('sync conflicts', () => {
     expect((await provider.list())[0]?.end).toBe('18:00');
     expect(root.textContent).not.toContain('changed on this device and elsewhere');
     expect(document.querySelector('dialog')).toBeNull();
+  });
+});
+
+describe('undo and restore', () => {
+  it('undoes a delete from the toast', async () => {
+    location.hash = '#/log';
+    const { root, provider } = await mount([e('2026-09-28')]);
+    root.querySelector<HTMLButtonElement>('[aria-label="Delete Mon 28 Sep"]')?.click();
+    button(document.querySelector('dialog') as HTMLDialogElement, 'Delete').click();
+    await flush();
+    expect(root.textContent).toContain('No entries yet.');
+
+    button(root, 'Undo').click();
+    await flush();
+    expect((await provider.list())[0]?.deletedAt).toBeUndefined();
+    expect(root.textContent).toContain('Mon 28 Sep');
+    expect(root.textContent).toContain('Restored Mon 28 Sep.');
+  });
+
+  it('restores from Settings → Recently deleted', async () => {
+    location.hash = '#/settings';
+    const { root, provider } = await mount([
+      e('2026-09-28', { deletedAt: '2026-09-29T10:00:00.000Z' }),
+    ]);
+    const section = root.querySelector('[aria-labelledby="deleted-title"]') as HTMLElement;
+    expect(section.textContent).toContain('Mon 28 Sep 2026');
+    root.querySelector<HTMLButtonElement>('[aria-label="Restore Mon 28 Sep"]')?.click();
+    await flush();
+    expect((await provider.list())[0]?.deletedAt).toBeUndefined();
+    expect(section.textContent).toContain('Nothing deleted in the last 30 days.');
   });
 });
