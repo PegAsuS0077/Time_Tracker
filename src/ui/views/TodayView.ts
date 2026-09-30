@@ -7,17 +7,58 @@ import {
   isStaleOpen,
   openProgress,
 } from '../../domain/entries';
-import { formatClock, formatDateLong, formatDuration, formatTime } from '../../domain/format';
+import {
+  formatClock,
+  formatDateLong,
+  formatDuration,
+  formatMonth,
+  formatTime,
+  formatWeekRange,
+} from '../../domain/format';
 import { berlinDateTime } from '../../domain/time';
+import { progress, timeline } from '../../domain/timeline';
 import type { Entry } from '../../domain/types';
+import { monthDates, monthKey, parseWeekKey, weekDates, weekKey } from '../../domain/week';
 import { clear, h, toast } from '../dom';
 import { openEntryForm } from '../components/EntryForm';
-import { TotalsCard } from '../components/TotalsCard';
+import { ProgressSummary } from '../components/ProgressSummary';
+import { WeekTimeline } from '../components/WeekTimeline';
 import type { View } from './View';
 
+const LONG_WEEKDAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+const LONG_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+function longDate(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  return `${LONG_WEEKDAYS[(d.getUTCDay() + 6) % 7] ?? ''} ${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()] ?? ''}`;
+}
+
 export function TodayView(service: TrackerService): View {
-  const el = h('section', { class: 'view', 'aria-labelledby': 'today-title' });
+  const el = h('section', { class: 'view view-today', 'aria-labelledby': 'today-title' });
+  const live = h('div', { class: 'live' });
   let renderedDate = '';
+  let renderedMinute = -1;
   let clockEl: HTMLElement | null = null;
   let netEl: HTMLElement | null = null;
   let running: Entry | undefined;
@@ -35,54 +76,57 @@ export function TodayView(service: TrackerService): View {
       });
   };
 
-  function openCard(entry: Entry, state: AppState, nowMs: number): HTMLElement {
+  const edit = (entry?: Entry, date?: string): void => {
+    openEntryForm(service, entry, date);
+  };
+
+  function runningCard(entry: Entry, state: AppState, nowMs: number): HTMLElement {
     const use24h = state.settings.use24h;
     const stale = isStaleOpen(entry, nowMs);
-    const progress = openProgress(entry, nowMs);
+    const p = openProgress(entry, nowMs);
     clockEl = h(
       'p',
-      { class: 'clock', role: 'timer', 'aria-label': 'Elapsed time' },
-      formatClock(progress?.elapsedSeconds ?? 0),
+      { class: 'clock', role: 'timer', 'aria-label': 'Time since you clocked in' },
+      formatClock(p?.elapsedSeconds ?? 0),
     );
-    netEl = h('span', null, formatDuration(progress?.netMinutes ?? 0));
-    const startedLabel =
+    netEl = h('span', null, formatDuration(p?.netMinutes ?? 0));
+    const since =
       entry.date === berlinDateTime(nowMs).date
-        ? `Started at ${formatTime(entry.start, use24h)}`
-        : `Started ${formatDateLong(entry.date)} at ${formatTime(entry.start, use24h)}`;
+        ? `On the clock since ${formatTime(entry.start, use24h)}`
+        : `On the clock since ${formatDateLong(entry.date)}, ${formatTime(entry.start, use24h)}`;
     return h(
       'div',
-      { class: 'card status' },
-      h('p', { class: 'status-label' }, startedLabel),
+      { class: 'punch is-running' },
+      h('p', { class: 'punch-state' }, h('span', { class: 'pulse', 'aria-hidden': 'true' }), since),
       clockEl,
       h(
         'p',
-        { class: 'muted' },
-        'Net so far (after ',
-        `${entry.breakMinutes} min break): `,
+        { class: 'punch-net' },
         netEl,
-        ' h',
+        ' h net so far',
+        h('span', { class: 'punch-break' }, `after ${entry.breakMinutes} min break`),
       ),
       stale
         ? h(
             'p',
-            { class: 'warning', role: 'alert' },
-            'This day has been open for more than 16 hours. Did you forget to end it? Edit it to enter the real end time.',
+            { class: 'notice notice-warn', role: 'alert' },
+            'This day has been open for more than 16 hours. Edit it and enter the time you actually stopped.',
           )
         : null,
       h(
         'div',
-        { class: 'actions' },
+        { class: 'punch-actions' },
         h(
           'button',
           {
             type: 'button',
-            class: 'btn btn-primary btn-big',
+            class: 'btn btn-primary btn-punch',
             disabled: stale,
             onclick: () => {
               act(() => service.end(entry.date));
             },
           },
-          'End',
+          'Clock out',
         ),
         h(
           'button',
@@ -90,7 +134,7 @@ export function TodayView(service: TrackerService): View {
             type: 'button',
             class: 'btn',
             onclick: () => {
-              openEntryForm(service, entry);
+              edit(entry);
             },
           },
           'Edit',
@@ -99,74 +143,110 @@ export function TodayView(service: TrackerService): View {
     );
   }
 
-  function closedCard(entry: Entry, state: AppState): HTMLElement {
+  function doneCard(entry: Entry, state: AppState): HTMLElement {
     const use24h = state.settings.use24h;
     const status = computeEntry(entry);
     const warning = state.settings.legalBreakWarning ? breakWarning(entry) : null;
     return h(
       'div',
-      { class: 'card status' },
-      h('p', { class: 'status-label' }, 'Day complete'),
+      { class: 'punch is-done' },
+      h('p', { class: 'punch-state' }, 'Done for today'),
       h(
-        'dl',
-        { class: 'facts' },
-        h('dt', null, 'Start'),
-        h('dd', null, formatTime(entry.start, use24h)),
-        h('dt', null, 'End'),
-        h('dd', null, entry.end ? formatTime(entry.end, use24h) : '—'),
-        h('dt', null, 'Break'),
-        h('dd', null, `${entry.breakMinutes} min`),
-        h('dt', null, 'Net'),
-        h(
-          'dd',
-          null,
-          status.kind === 'closed' ? `${formatDuration(status.netMinutes)} h` : 'invalid',
-        ),
+        'p',
+        { class: 'punch-range' },
+        `${formatTime(entry.start, use24h)}–${entry.end ? formatTime(entry.end, use24h) : ''}`,
+      ),
+      h(
+        'p',
+        { class: 'punch-net' },
+        status.kind === 'closed' ? `${formatDuration(status.netMinutes)} h net` : 'Invalid times',
+        h('span', { class: 'punch-break' }, `after ${entry.breakMinutes} min break`),
       ),
       entry.note ? h('p', { class: 'note' }, entry.note) : null,
       warning
         ? h(
             'p',
-            { class: 'warning' },
-            `Break is ${warning.actualMinutes} min; the legal minimum for this day is ${warning.requiredMinutes} min.`,
+            { class: 'notice notice-warn' },
+            `The legal minimum break for this day is ${warning.requiredMinutes} min.`,
           )
         : null,
       h(
         'div',
-        { class: 'actions' },
+        { class: 'punch-actions' },
         h(
           'button',
           {
             type: 'button',
             class: 'btn',
             onclick: () => {
-              openEntryForm(service, entry);
+              edit(entry);
             },
           },
-          'Edit',
+          'Edit today',
         ),
       ),
     );
   }
 
-  function startCard(): HTMLElement {
+  function idleCard(): HTMLElement {
     return h(
       'div',
-      { class: 'card status' },
-      h('p', { class: 'status-label' }, 'Not started'),
+      { class: 'punch is-idle' },
+      h('p', { class: 'punch-state' }, 'Not clocked in'),
       h(
         'div',
-        { class: 'actions' },
+        { class: 'punch-actions' },
         h(
           'button',
           {
             type: 'button',
-            class: 'btn btn-primary btn-big',
+            class: 'btn btn-primary btn-punch',
             onclick: () => {
               act(() => service.start());
             },
           },
-          'Start',
+          'Clock in',
+        ),
+      ),
+    );
+  }
+
+  /** Week chart and totals; re-rendered every minute while a day is running. */
+  function renderLive(state: AppState, nowMs: number): void {
+    const today = berlinDateTime(nowMs).date;
+    const week = weekKey(today);
+    const month = monthKey(today);
+    const hours = state.settings.contractedWeeklyHours;
+    const weekNumber = parseWeekKey(week)?.week ?? 0;
+    clear(live);
+    live.append(
+      h(
+        'section',
+        { class: 'sheet', 'aria-labelledby': 'week-sum' },
+        ProgressSummary(
+          progress(state.entries, weekDates(week), today, nowMs, hours),
+          'week-sum',
+          `Week ${weekNumber}`,
+          formatWeekRange(week),
+        ),
+        WeekTimeline(timeline(state.entries, weekDates(week), nowMs), {
+          today,
+          use24h: state.settings.use24h,
+          legalBreakWarning: state.settings.legalBreakWarning,
+          onSelect: (date, entry) => {
+            edit(entry, date);
+          },
+        }),
+      ),
+      h(
+        'section',
+        { class: 'sheet sheet-compact', 'aria-labelledby': 'month-sum' },
+        ProgressSummary(
+          progress(state.entries, monthDates(month), today, nowMs, hours),
+          'month-sum',
+          formatMonth(month),
+          'This month',
+          'month',
         ),
       ),
     );
@@ -176,20 +256,24 @@ export function TodayView(service: TrackerService): View {
     const nowMs = service.now();
     const today = berlinDateTime(nowMs).date;
     renderedDate = today;
+    renderedMinute = Math.floor(nowMs / 60_000);
     clockEl = null;
     netEl = null;
     running = findOpenEntry(state.entries);
     const todays = findEntry(state.entries, today);
 
     let card: HTMLElement;
-    if (running) card = openCard(running, state, nowMs);
-    else if (todays) card = closedCard(todays, state);
-    else card = startCard();
+    if (!state.ready) card = h('p', { class: 'muted' }, 'Loading…');
+    else if (running) card = runningCard(running, state, nowMs);
+    else if (todays) card = doneCard(todays, state);
+    else card = idleCard();
 
+    renderLive(state, nowMs);
     clear(el);
     el.append(
-      h('h2', { id: 'today-title', class: 'view-title', tabindex: -1 }, formatDateLong(today)),
-      state.ready ? card : h('p', { class: 'muted' }, 'Loading…'),
+      h('h2', { id: 'today-title', class: 'view-title', tabindex: -1 }, longDate(today)),
+      card,
+      live,
       h(
         'p',
         { class: 'secondary-actions' },
@@ -199,13 +283,12 @@ export function TodayView(service: TrackerService): View {
             type: 'button',
             class: 'btn btn-link',
             onclick: () => {
-              openEntryForm(service);
+              edit();
             },
           },
-          'Add or fix another day',
+          'Add a past day',
         ),
       ),
-      TotalsCard(state, nowMs),
     );
   }
 
@@ -215,10 +298,15 @@ export function TodayView(service: TrackerService): View {
       render(service.store.get());
       return;
     }
-    if (running && clockEl && netEl) {
-      const progress = openProgress(running, nowMs);
-      clockEl.textContent = formatClock(progress?.elapsedSeconds ?? 0);
-      netEl.textContent = formatDuration(progress?.netMinutes ?? 0);
+    if (running && clockEl) {
+      const p = openProgress(running, nowMs);
+      clockEl.textContent = formatClock(p?.elapsedSeconds ?? 0);
+      if (netEl) netEl.textContent = formatDuration(p?.netMinutes ?? 0);
+      const minute = Math.floor(nowMs / 60_000);
+      if (minute !== renderedMinute) {
+        renderedMinute = minute;
+        renderLive(service.store.get(), nowMs);
+      }
     }
   }, 1000);
 
