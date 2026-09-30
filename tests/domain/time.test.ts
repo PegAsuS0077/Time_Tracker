@@ -6,7 +6,6 @@ import {
   berlinToEpoch,
   daysBetween,
   elapsedMinutes,
-  elapsedSince,
   endsNextDay,
   isValidDate,
   isValidTime,
@@ -149,17 +148,6 @@ describe('elapsedMinutes', () => {
       error: 'zero-length',
     });
     expect(elapsedMinutes('2026-09-30', '08:00', '25:00')).toEqual({ ok: false, error: 'invalid' });
-  });
-});
-
-describe('elapsedSince', () => {
-  it('counts whole minutes since start and never goes negative', () => {
-    expect(elapsedSince('2026-09-30', '08:00', at('2026-09-30T08:30:59Z'))).toBe(150);
-    expect(elapsedSince('2026-09-30', '08:00', at('2026-09-30T05:00:00Z'))).toBe(0);
-  });
-
-  it('returns null for a nonexistent start', () => {
-    expect(elapsedSince('2026-03-29', '02:30', at('2026-03-29T05:00:00Z'))).toBeNull();
   });
 });
 

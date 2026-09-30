@@ -2,7 +2,7 @@ import {
   addDays,
   berlinDateTime,
   elapsedMinutes,
-  elapsedSince,
+  berlinToEpoch,
   endsNextDay,
   type IntervalError,
 } from './time';
@@ -32,11 +32,17 @@ export function computeEntry(entry: Entry): EntryStatus {
 export function openProgress(
   entry: Entry,
   nowMs: number,
-): { elapsedMinutes: number; netMinutes: number } | null {
+): { elapsedSeconds: number; elapsedMinutes: number; netMinutes: number } | null {
   if (entry.end !== null) return null;
-  const elapsed = elapsedSince(entry.date, entry.start, nowMs);
-  if (elapsed === null) return null;
-  return { elapsedMinutes: elapsed, netMinutes: Math.max(0, elapsed - entry.breakMinutes) };
+  const start = berlinToEpoch(entry.date, entry.start);
+  if (!start.ok) return null;
+  const elapsedSeconds = Math.max(0, Math.floor((nowMs - start.value) / 1000));
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  return {
+    elapsedSeconds,
+    elapsedMinutes,
+    netMinutes: Math.max(0, elapsedMinutes - entry.breakMinutes),
+  };
 }
 
 export function isStaleOpen(entry: Entry, nowMs: number): boolean {

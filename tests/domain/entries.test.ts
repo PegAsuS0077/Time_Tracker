@@ -63,10 +63,12 @@ describe('openProgress / isStaleOpen', () => {
   it('reports elapsed and net-so-far', () => {
     // 10:00 Berlin
     expect(openProgress(open, at('2026-09-30T08:00:00Z'))).toEqual({
+      elapsedSeconds: 7200,
       elapsedMinutes: 120,
       netMinutes: 90,
     });
     expect(openProgress(open, at('2026-09-30T06:10:00Z'))).toEqual({
+      elapsedSeconds: 600,
       elapsedMinutes: 10,
       netMinutes: 0,
     });

@@ -159,10 +159,3 @@ export function elapsedMinutes(
   if (!e.ok) return e;
   return ok(Math.round((e.value - s.value) / MINUTE_MS));
 }
-
-/** Minutes elapsed since an open entry started, up to `nowMs`. */
-export function elapsedSince(date: DateStr, start: TimeStr, nowMs: number): number | null {
-  const s = berlinToEpoch(date, start);
-  if (!s.ok) return null;
-  return Math.max(0, Math.floor((nowMs - s.value) / MINUTE_MS));
-}
