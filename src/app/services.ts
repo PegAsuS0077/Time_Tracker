@@ -14,6 +14,7 @@ import {
   type MonthKey,
   type Result,
   type Settings,
+  type SyncSettings,
   type WeekKey,
 } from '../domain/types';
 import type { SettingsStore, StorageProvider, SyncState } from '../storage/StorageProvider';
@@ -47,6 +48,14 @@ export interface ImportPreview {
   invalid: number;
 }
 
+export interface ConnectionInfo {
+  fullName: string;
+  private: boolean;
+  canPush: boolean;
+}
+
+export type ConnectionTester = (sync: SyncSettings) => Promise<Result<ConnectionInfo>>;
+
 export type ProviderFactory = (settings: Settings) => StorageProvider;
 
 const START_ERRORS = {
@@ -76,6 +85,8 @@ export class TrackerService {
     private readonly settingsStore: SettingsStore,
     private readonly providerFactory: ProviderFactory,
     private readonly clock: () => number = Date.now,
+    private readonly connectionTester: ConnectionTester = () =>
+      Promise.resolve(err('Sync is not available.')),
   ) {
     this.provider = providerFactory(DEFAULT_SETTINGS);
     this.store = createStore<AppState>({
@@ -218,10 +229,18 @@ export class TrackerService {
       this.store.set({ sync: { status: 'off', pending: 0 } });
       return;
     }
+    const provider = this.provider;
     this.store.set({ sync: { ...this.store.get().sync, status: 'syncing' } });
-    const report = await this.provider.sync();
+    const report = await provider.sync();
+    // Ignore results from a provider replaced by a settings change meanwhile.
+    if (provider !== this.provider) return;
     this.store.set({ sync: report.state, conflicts: report.conflicts });
     await this.refreshEntries();
+  }
+
+  /** Check that a sync configuration can reach its repository. */
+  testConnection(sync: SyncSettings): Promise<Result<ConnectionInfo>> {
+    return this.connectionTester(sync);
   }
 
   async resolveConflict(date: DateStr, choice: 'local' | 'remote'): Promise<void> {

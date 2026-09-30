@@ -176,3 +176,25 @@ describe('navigation', () => {
     expect(root.querySelector('h2')?.textContent).toBe('Settings');
   });
 });
+
+describe('sync conflicts', () => {
+  it('shows a banner and lets the user keep the synced copy', async () => {
+    const local = e('2026-09-28', { end: '17:00' });
+    const remote = e('2026-09-28', { end: '18:00', updatedAt: '2026-09-29T12:00:00.000Z' });
+    const { root, service, provider } = await mount([local]);
+    provider.conflicts = [{ date: '2026-09-28', local, remote }];
+    service.store.set({ conflicts: provider.conflicts });
+
+    expect(root.textContent).toContain('1 day was changed on this device and elsewhere');
+    button(root, 'Resolve').click();
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.textContent).toContain('Synced copy (newer)');
+    button(dialog, 'Keep synced copy').click();
+    await flush();
+    await flush();
+
+    expect((await provider.list())[0]?.end).toBe('18:00');
+    expect(root.textContent).not.toContain('changed on this device and elsewhere');
+    expect(document.querySelector('dialog')).toBeNull();
+  });
+});
