@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, type Entry } from '../../src/domain/types';
 import { MemoryProvider, MemorySettingsStore } from '../../src/storage/MemoryProvider';
 
 const at = (iso: string): number => Date.parse(iso);
+const CRLF = String.fromCharCode(13, 10);
 
 const e = (date: string, over: Partial<Entry> = {}): Entry => ({
   date,
@@ -150,5 +151,41 @@ describe('TrackerService', () => {
     expect(stored[0]?.end).toBe('18:00');
     expect(stored[0]?.updatedAt).toBe('2026-09-30T06:15:00.000Z');
     expect(service.store.get().conflicts).toEqual([]);
+  });
+
+  it('exports CSV for a week, a month and everything', async () => {
+    const { service } = await setup([e('2026-09-28'), e('2026-10-01'), e('2026-09-21')]);
+    const week = service.exportCsv({ kind: 'week', key: '2026-W40' });
+    expect(week.filename).toBe('time-tracker-2026-W40.csv');
+    expect(week.content.split(CRLF)).toHaveLength(4);
+    const month = service.exportCsv({ kind: 'month', key: '2026-09' });
+    expect(month.content.split(CRLF)).toHaveLength(4);
+    const all = service.exportCsv({ kind: 'all' });
+    expect(all.filename).toBe('time-tracker-all-2026-09-30.csv');
+    expect(all.content.split(CRLF)).toHaveLength(5);
+  });
+
+  it('round-trips a backup through preview and import', async () => {
+    const source = await setup([e('2026-09-28'), e('2026-09-29')]);
+    await source.service.saveSettings({ ...DEFAULT_SETTINGS, contractedWeeklyHours: 39 });
+    const backup = source.service.exportBackup();
+    expect(backup.filename).toBe('time-tracker-backup-2026-09-30.json');
+
+    const target = await setup([
+      e('2026-09-28', { end: '12:00', updatedAt: '2026-09-01T00:00:00.000Z' }),
+    ]);
+    const preview = target.service.previewImport(backup.content);
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+    expect(preview.value.plan).toMatchObject({ added: 1, updated: 1, skipped: 0 });
+    await target.service.applyImport(preview.value, true);
+    expect((await target.provider.list()).map((x) => x.end)).toEqual(['16:00', '16:00']);
+    expect(target.service.store.get().settings.contractedWeeklyHours).toBe(39);
+  });
+
+  it('reports invalid backup files', async () => {
+    const { service } = await setup();
+    const preview = service.previewImport('{"format":"nope"}');
+    expect(!preview.ok && preview.error).toMatch(/not a Time Tracker backup/);
   });
 });

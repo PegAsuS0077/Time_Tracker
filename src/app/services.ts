@@ -1,5 +1,9 @@
+import { entriesInMonth, entriesInWeek } from '../domain/aggregate';
+import { createBackup, parseBackup, type Preferences } from '../domain/backup';
+import { entriesToCsv } from '../domain/csv';
 import { endDay, findEntry, markDeleted, startDay } from '../domain/entries';
-import type { Conflict } from '../domain/merge';
+import { planImport, type Conflict, type ImportPlan } from '../domain/merge';
+import { berlinDateTime } from '../domain/time';
 import { validateEntryInput, type EntryInput, type FieldErrors } from '../domain/validate';
 import {
   DEFAULT_SETTINGS,
@@ -7,8 +11,10 @@ import {
   ok,
   type DateStr,
   type Entry,
+  type MonthKey,
   type Result,
   type Settings,
+  type WeekKey,
 } from '../domain/types';
 import type { SettingsStore, StorageProvider, SyncState } from '../storage/StorageProvider';
 import { createStore, type Store } from './store';
@@ -25,6 +31,21 @@ export interface AppState {
 }
 
 export type FormErrors = FieldErrors & { form?: string };
+
+export type CsvScope =
+  { kind: 'week'; key: WeekKey } | { kind: 'month'; key: MonthKey } | { kind: 'all' };
+
+export interface ExportFile {
+  filename: string;
+  mimeType: string;
+  content: string;
+}
+
+export interface ImportPreview {
+  plan: ImportPlan;
+  preferences: Preferences | null;
+  invalid: number;
+}
 
 export type ProviderFactory = (settings: Settings) => StorageProvider;
 
@@ -212,5 +233,49 @@ export class TrackerService {
     await this.provider.resolveConflict(date, chosen);
     await this.refreshEntries();
     void this.sync();
+  }
+
+  exportCsv(scope: CsvScope): ExportFile {
+    const { entries } = this.store.get();
+    const selected =
+      scope.kind === 'week'
+        ? entriesInWeek(entries, scope.key)
+        : scope.kind === 'month'
+          ? entriesInMonth(entries, scope.key)
+          : entries;
+    const suffix = scope.kind === 'all' ? `all-${berlinDateTime(this.clock()).date}` : scope.key;
+    return {
+      filename: `time-tracker-${suffix}.csv`,
+      mimeType: 'text/csv;charset=utf-8',
+      content: entriesToCsv(selected),
+    };
+  }
+
+  exportBackup(): ExportFile {
+    const { entries, settings } = this.store.get();
+    const nowMs = this.clock();
+    return {
+      filename: `time-tracker-backup-${berlinDateTime(nowMs).date}.json`,
+      mimeType: 'application/json',
+      content: createBackup(entries, settings, nowMs),
+    };
+  }
+
+  /** Validate a backup file and work out what importing it would change. */
+  previewImport(text: string): Result<ImportPreview> {
+    const parsed = parseBackup(text);
+    if (!parsed.ok) return parsed;
+    return ok({
+      plan: planImport(this.store.get().entries, parsed.value.entries),
+      preferences: parsed.value.preferences,
+      invalid: parsed.value.invalid,
+    });
+  }
+
+  async applyImport(preview: ImportPreview, restorePreferences: boolean): Promise<void> {
+    await this.saveMany(preview.plan.toWrite);
+    if (restorePreferences && preview.preferences) {
+      await this.saveSettings({ ...this.store.get().settings, ...preview.preferences });
+    }
   }
 }

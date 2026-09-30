@@ -4,6 +4,7 @@ import { openTrackerDb, type TrackerDatabase } from './storage/idb';
 import { IdbSettingsStore, LocalProvider } from './storage/LocalProvider';
 import { MemoryProvider, MemorySettingsStore } from './storage/MemoryProvider';
 import { mountApp } from './ui/app';
+import { DataSection } from './ui/components/DataSection';
 
 async function bootstrap(): Promise<void> {
   const root = document.getElementById('app');
@@ -21,7 +22,7 @@ async function bootstrap(): Promise<void> {
   const settingsStore = db ? new IdbSettingsStore(db) : new MemorySettingsStore();
   const service = new TrackerService(settingsStore, providerFactory);
 
-  mountApp(root, service);
+  mountApp(root, service, { settingsSections: [DataSection] });
   if (!db) {
     service.store.set({
       storageError:
