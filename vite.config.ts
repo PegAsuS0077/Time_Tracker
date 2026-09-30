@@ -53,8 +53,8 @@ export default defineConfig(({ mode }) => {
           scope: '.',
           display: 'standalone',
           orientation: 'portrait',
-          background_color: '#f6f7f9',
-          theme_color: '#1f5fbf',
+          background_color: '#e3e9e1',
+          theme_color: '#1f4e48',
           icons: [
             { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
             { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -68,7 +68,7 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           // Precache the app shell only. GitHub API calls are never cached.
-          globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
           navigateFallback: 'index.html',
           cleanupOutdatedCaches: true,
           runtimeCaching: [],

@@ -2,8 +2,8 @@
 import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
-const BG = [31, 95, 191]; // #1f5fbf
-const FG = [255, 255, 255];
+const BG = [31, 78, 72]; // #1f4e48
+const FG = [245, 247, 242]; // #f5f7f2
 
 function crc32(buf) {
   let c;
