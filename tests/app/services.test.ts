@@ -188,4 +188,26 @@ describe('TrackerService', () => {
     const preview = service.previewImport('{"format":"nope"}');
     expect(!preview.ok && preview.error).toMatch(/not a Time Tracker backup/);
   });
+
+  it('restores a deleted day', async () => {
+    const { service, provider } = await setup([e('2026-09-29', { note: 'x' })]);
+    await service.deleteEntry('2026-09-29');
+    const result = await service.restoreEntry('2026-09-29');
+    expect(result.ok).toBe(true);
+    const stored = (await provider.list())[0];
+    expect(stored?.deletedAt).toBeUndefined();
+    expect(stored?.note).toBe('x');
+  });
+
+  it('refuses to restore over a newer entry on the same date', async () => {
+    const { service } = await setup([e('2026-09-25', { deletedAt: '2026-09-29T10:00:00.000Z' })]);
+    await service.saveEntry(input());
+    const result = await service.restoreEntry('2026-09-25');
+    expect(!result.ok && result.error).toMatch(/already has an entry/);
+  });
+
+  it('reports when there is nothing to restore', async () => {
+    const { service } = await setup([e('2026-09-25')]);
+    expect((await service.restoreEntry('2026-09-20')).ok).toBe(false);
+  });
 });

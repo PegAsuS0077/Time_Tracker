@@ -1,7 +1,7 @@
 import { entriesInMonth, entriesInWeek } from '../domain/aggregate';
 import { createBackup, parseBackup, type Preferences } from '../domain/backup';
 import { entriesToCsv } from '../domain/csv';
-import { endDay, findEntry, markDeleted, startDay } from '../domain/entries';
+import { endDay, findEntry, markDeleted, restoreDeleted, startDay } from '../domain/entries';
 import { planImport, type Conflict, type ImportPlan } from '../domain/merge';
 import { berlinDateTime } from '../domain/time';
 import { validateEntryInput, type EntryInput, type FieldErrors } from '../domain/validate';
@@ -201,6 +201,19 @@ export class TrackerService {
     const entry = findEntry(this.store.get().entries, date);
     if (!entry) return;
     await this.persist([markDeleted(entry, this.clock())]);
+  }
+
+  /** Bring back a deleted day. Fails if the date has been re-used meanwhile. */
+  async restoreEntry(date: DateStr): Promise<Result<Entry>> {
+    const entries = this.store.get().entries;
+    if (findEntry(entries, date)) {
+      return err('That date already has an entry. Delete or edit it first.');
+    }
+    const tombstone = entries.find((e) => e.date === date && e.deletedAt !== undefined);
+    if (!tombstone) return err('Nothing to restore for that date.');
+    const restored = restoreDeleted(tombstone, this.clock());
+    await this.persist([restored]);
+    return ok(restored);
   }
 
   /** Add or overwrite many entries at once (used by import). */

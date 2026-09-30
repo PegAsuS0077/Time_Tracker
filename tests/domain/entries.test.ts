@@ -8,6 +8,8 @@ import {
   isStaleOpen,
   markDeleted,
   openProgress,
+  recentlyDeleted,
+  restoreDeleted,
   startDay,
 } from '../../src/domain/entries';
 import type { Entry } from '../../src/domain/types';
@@ -188,5 +190,30 @@ describe('markDeleted', () => {
     expect(deleted.deletedAt).toBe('2026-10-01T10:00:00.000Z');
     expect(deleted.updatedAt).toBe('2026-10-01T10:00:00.000Z');
     expect(deleted.start).toBe('08:00');
+  });
+});
+
+describe('restoreDeleted / recentlyDeleted', () => {
+  it('removes the tombstone and re-stamps updatedAt', () => {
+    const restored = restoreDeleted(
+      entry({ deletedAt: TS, updatedAt: TS, note: 'kept' }),
+      at('2026-10-01T10:00:00Z'),
+    );
+    expect(restored).toEqual(entry({ note: 'kept', updatedAt: '2026-10-01T10:00:00.000Z' }));
+    expect('deletedAt' in restored).toBe(false);
+  });
+
+  it('lists deletions from the last 30 days, newest first', () => {
+    const now = at('2026-10-10T12:00:00Z');
+    const list = recentlyDeleted(
+      [
+        entry({ date: '2026-09-01', deletedAt: '2026-09-05T10:00:00.000Z' }),
+        entry({ date: '2026-09-28', deletedAt: '2026-10-01T10:00:00.000Z' }),
+        entry({ date: '2026-09-29', deletedAt: '2026-10-09T10:00:00.000Z' }),
+        entry({ date: '2026-09-30' }),
+      ],
+      now,
+    );
+    expect(list.map((e) => e.date)).toEqual(['2026-09-29', '2026-09-28']);
   });
 });

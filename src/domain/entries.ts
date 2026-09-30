@@ -108,3 +108,18 @@ export function markDeleted(entry: Entry, nowMs: number): Entry {
   const at = new Date(nowMs).toISOString();
   return { ...entry, deletedAt: at, updatedAt: at };
 }
+
+/** Undo a delete: drop the tombstone and re-stamp so the restore wins on sync. */
+export function restoreDeleted(entry: Entry, nowMs: number): Entry {
+  const restored: Entry = { ...entry, updatedAt: new Date(nowMs).toISOString() };
+  delete restored.deletedAt;
+  return restored;
+}
+
+/** Deleted days from the last `days` days, most recently deleted first. */
+export function recentlyDeleted(entries: readonly Entry[], nowMs: number, days = 30): Entry[] {
+  const cutoff = new Date(nowMs - days * 86_400_000).toISOString();
+  return entries
+    .filter((e) => e.deletedAt !== undefined && e.deletedAt >= cutoff)
+    .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
+}
