@@ -8,6 +8,7 @@ import {
 import { openTrackerDb, type TrackerDatabase } from './storage/idb';
 import { IdbSettingsStore, LocalProvider } from './storage/LocalProvider';
 import { MemoryProvider, MemorySettingsStore } from './storage/MemoryProvider';
+import { setupPwa } from './pwa/register';
 import { mountApp } from './ui/app';
 import { DataSection } from './ui/components/DataSection';
 import { SyncBadge } from './ui/components/SyncBadge';
@@ -49,6 +50,7 @@ async function bootstrap(): Promise<void> {
         'This browser blocks local storage (private mode?). Entries will be lost when you close the tab.',
     });
   }
+  setupPwa();
   // Pull on open.
   await service.load();
 

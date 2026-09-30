@@ -575,6 +575,17 @@ form .actions {
   box-shadow: var(--shadow);
 }
 
+.toast-update {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toast-update span {
+  flex: 1;
+}
+
 .toast-error {
   background: var(--danger);
   color: var(--danger-text);
