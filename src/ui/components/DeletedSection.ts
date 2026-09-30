@@ -4,6 +4,7 @@ import { formatDateLong, formatDateShort, formatTime } from '../../domain/format
 import { berlinDateTime } from '../../domain/time';
 import type { Entry } from '../../domain/types';
 import { h, toast } from '../dom';
+import { Fold } from './Fold';
 
 function item(service: TrackerService, entry: Entry, state: AppState): HTMLElement {
   const use24h = state.settings.use24h;
@@ -47,6 +48,10 @@ export function DeletedSection(service: TrackerService): HTMLElement {
     if (state.entries === renderedEntries) return;
     renderedEntries = state.entries;
     const deleted = recentlyDeleted(state.entries, service.now());
+    fold.subtitle.textContent =
+      deleted.length === 0
+        ? 'Nothing to restore'
+        : `${deleted.length} ${deleted.length === 1 ? 'day' : 'days'} can be restored`;
     body.replaceChildren(
       deleted.length === 0
         ? h('p', { class: 'muted' }, 'Nothing deleted in the last 30 days.')
@@ -54,17 +59,15 @@ export function DeletedSection(service: TrackerService): HTMLElement {
     );
   };
 
-  const section = h(
-    'section',
-    { class: 'card', 'aria-labelledby': 'deleted-title' },
-    h('h3', { id: 'deleted-title' }, 'Recently deleted'),
+  const fold = Fold('Recently deleted', '', [
     h(
       'p',
       { class: 'hint' },
       'Days deleted in the last 30 days. Older deletions stay visible in your GitHub history.',
     ),
     body,
-  );
+  ]);
+  const section = fold.el;
 
   render(service.store.get());
   const unsubscribe = service.store.subscribe((state) => {

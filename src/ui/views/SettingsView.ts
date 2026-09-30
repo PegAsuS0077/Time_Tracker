@@ -111,8 +111,8 @@ function workSection(service: TrackerService, settings: Settings): HTMLElement {
 
   return h(
     'section',
-    { class: 'card', 'aria-labelledby': 'work-title' },
-    h('h3', { id: 'work-title' }, 'Work preferences'),
+    { class: 'sheet', 'aria-labelledby': 'work-title' },
+    h('h3', { id: 'work-title', class: 'sheet-title' }, 'Work preferences'),
     form,
   );
 }
@@ -131,8 +131,8 @@ function storageSection(): HTMLElement {
   }
   return h(
     'section',
-    { class: 'card', 'aria-labelledby': 'storage-title' },
-    h('h3', { id: 'storage-title' }, 'On this device'),
+    { class: 'sheet sheet-compact', 'aria-labelledby': 'storage-title' },
+    h('h3', { id: 'storage-title', class: 'sheet-title' }, 'On this device'),
     status,
   );
 }

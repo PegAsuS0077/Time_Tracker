@@ -5,6 +5,7 @@ import { berlinDateTime } from '../../domain/time';
 import { monthKey, shortWeekLabel, weekKey } from '../../domain/week';
 import { h, nextId, toast } from '../dom';
 import { openDialog } from './Dialog';
+import { Fold } from './Fold';
 
 /** Trigger a browser download of generated text. */
 export function download(file: ExportFile): void {
@@ -138,10 +139,7 @@ export function DataSection(service: TrackerService): HTMLElement {
       });
   });
 
-  return h(
-    'section',
-    { class: 'card', 'aria-labelledby': 'data-title' },
-    h('h3', { id: 'data-title' }, 'Export and backup'),
+  return Fold('Export and backup', 'CSV for spreadsheets, JSON backup and restore', [
     h('h4', null, 'CSV for spreadsheets'),
     weekSelect.wrapper,
     h(
@@ -219,5 +217,5 @@ export function DataSection(service: TrackerService): HTMLElement {
       ),
       importError,
     ),
-  );
+  ]).el;
 }

@@ -2,6 +2,7 @@ import type { AppState, TrackerService } from '../../app/services';
 import type { SyncSettings } from '../../domain/types';
 import { h, nextId, toast } from '../dom';
 import { confirmDialog } from './Dialog';
+import { Fold } from './Fold';
 import { describeSync } from './SyncBadge';
 
 function textField(
@@ -231,17 +232,31 @@ export function SyncSection(service: TrackerService): HTMLElement {
     renderStatus(state);
   });
 
-  return h(
-    'section',
-    { class: 'card', 'aria-labelledby': 'sync-title' },
-    h('h3', { id: 'sync-title' }, 'GitHub sync'),
-    h(
-      'p',
-      { class: 'hint' },
-      'Optional. Keeps a tamper-evident history of your hours in your own private repository: every change is a commit. The app works fully offline without it.',
-    ),
-    status,
-    h('div', { class: 'data-actions' }, syncNow, sync.token ? removeToken : null),
-    form,
-  );
+  const configured = sync.enabled && sync.token !== '';
+  return Fold(
+    'GitHub sync',
+    configured ? `${sync.owner}/${sync.repo}` : 'Off. Your data stays on this device.',
+    [
+      configured
+        ? null
+        : h(
+            'p',
+            { class: 'hint' },
+            'Optional. Keeps a tamper-evident history of your hours in your own private repository: every change is a commit. The app works fully offline without it.',
+          ),
+      configured ? status : null,
+      configured || sync.token
+        ? h(
+            'div',
+            { class: 'data-actions' },
+            configured ? syncNow : null,
+            sync.token ? removeToken : null,
+          )
+        : null,
+      configured
+        ? h('details', { class: 'subfold' }, h('summary', null, 'Change sync settings'), form)
+        : form,
+    ],
+    !configured,
+  ).el;
 }
